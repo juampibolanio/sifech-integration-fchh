@@ -1,13 +1,21 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
+const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
 
 // Función para poner la primera letra en mayúscula 
 function formatearNombre(nombreCompleto) {
   if (!nombreCompleto) return "";
-  return nombreCompleto.toLowerCase().replace(/(?:^|[\s,-])\w/g, function(match) {
+  // Si hay una coma, nos aseguramos de que tenga un espacio después
+  let nombre = nombreCompleto.replace(/,\s*/g, ', ');
+  return nombre.toLowerCase().replace(/(?:^|[\s,-])\w/g, function(match) {
       return match.toUpperCase();
   });
+}
+
+// Limpiamos los símbolos raros de los torneos (como el ? por la ó)
+function limpiarTorneo(torneoCrudo) {
+  if (!torneoCrudo) return "";
+  return torneoCrudo.replace(/\?/g, 'ó').trim(); 
 }
 
 async function obtenerGoleadoresDefinitivo() {
@@ -31,9 +39,7 @@ async function obtenerGoleadoresDefinitivo() {
     console.log("🖱️ Disparando la función JavaScript oculta del menú...");
 
     const hizoClic = await page.evaluate(() => {
-      const enlaceSecreto = document.querySelector(
-        'a[href*="grid_tabla_goleadores"]',
-      );
+      const enlaceSecreto = document.querySelector('a[href*="grid_tabla_goleadores"]');
       if (enlaceSecreto) {
         enlaceSecreto.click();
         return true;
@@ -48,9 +54,7 @@ async function obtenerGoleadoresDefinitivo() {
     console.log("⏳ Esperando 6 segundos a que el Iframe se actualice...");
     await new Promise((r) => setTimeout(r, 6000));
 
-    console.log("🕵️‍♂️ Buscando la nueva tabla adentro del Iframe...");
     let iframeGoleadores = null;
-
     for (const frame of page.frames()) {
       if (frame.url().includes("grid_tabla_goleadores")) {
         iframeGoleadores = frame;
@@ -62,7 +66,7 @@ async function obtenerGoleadoresDefinitivo() {
       throw new Error("El clic funcionó, pero el Iframe no cambió a Goleadores.");
     }
 
-    console.log("📥 ¡Tabla de Goleadores localizada! Extrayendo datos en crudo...");
+    console.log("📥 ¡Tabla de Goleadores localizada! Extrayendo datos...");
     const html = await iframeGoleadores.content();
     const $ = cheerio.load(html);
 
@@ -76,8 +80,9 @@ async function obtenerGoleadoresDefinitivo() {
       if (agrupadorTd.length === 3) {
         let etiqueta = $(agrupadorTd[0]).text().trim();
         let valor = $(agrupadorTd[2]).text().trim();
-        // Dejamos el torneo crudo, como viene del SIFECH
-        if (etiqueta === "Torneo") currentTorneo = valor; 
+        
+        // Aplicamos limpieza al torneo y categoría al vuelo
+        if (etiqueta === "Torneo") currentTorneo = limpiarTorneo(valor); 
         if (etiqueta === "Categoria") currentCategoria = valor;
       }
 
@@ -90,13 +95,15 @@ async function obtenerGoleadoresDefinitivo() {
 
         if (textosFila.length >= 4) {
           let jugCrudo = textosFila[1];
-          let clubCrudo = textosFila[2]; // Equipo crudo, sin diccionario
+          let clubCrudo = textosFila[2];
           let golesCrudos = textosFila[textosFila.length - 1];
 
           if (jugCrudo !== "Jugador" && !isNaN(parseInt(golesCrudos))) {
             
             let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
-            let equipoLimpio = clubCrudo; 
+            
+            // 👇 ACÁ ESTÁ EL CAMBIO: Aplicamos el diccionario de equipos
+            let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo); 
             let nombreLimpio = formatearNombre(jugCrudo);
 
             let uid = `${categoriaLimpia}-${nombreLimpio}-${equipoLimpio}-${currentTorneo}`;
@@ -121,9 +128,7 @@ async function obtenerGoleadoresDefinitivo() {
     const goleadoresAgrupados = {};
 
     goleadoresCrudos.forEach(jugador => {
-        // 👇 LA MAGIA ACÁ: Creamos una llave única que junta Torneo + Categoría
         let llaveGrupo = `${jugador.torneo}|${jugador.categoria}`;
-
         if (!goleadoresAgrupados[llaveGrupo]) {
             goleadoresAgrupados[llaveGrupo] = [];
         }
@@ -134,11 +139,8 @@ async function obtenerGoleadoresDefinitivo() {
 
     for (const llave in goleadoresAgrupados) {
         let jugadoresCat = goleadoresAgrupados[llave];
-
-        // Ordenamos por goles de mayor a menor dentro de su grupo específico
         jugadoresCat.sort((a, b) => b.goles - a.goles);
 
-        // Cortamos en 10
         let top10 = jugadoresCat.slice(0, 10).map((jugador, index) => {
             jugador.posicion = index + 1; 
             return jugador;
@@ -150,7 +152,6 @@ async function obtenerGoleadoresDefinitivo() {
     console.log(`\n🎉 ¡EXTRACCIÓN FINALIZADA! Se enviarán ${goleadoresTop10.length} goleadores a Wix.`);
     
     if (goleadoresTop10.length > 0) {
-      // Enviamos a Wix
       await empujarGoleadoresAWix(goleadoresTop10);
     }
 

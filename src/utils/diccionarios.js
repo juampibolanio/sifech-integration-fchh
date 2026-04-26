@@ -41,6 +41,14 @@ const diccionarioEquipos = {
   "CLUB ATLÉTICO BOLIDO VERDE": "CA. Bólido Verde",
   "VILLA ALVEAR": "Villa Alvear",
   NBCH: "NBCH",
+  ALFONSINA: "Alfonsina",
+  "CLUB SPORTIVO ZAPALLAR": "CS. Zapallar",
+  "DEFENSORES DE LA COSTA": "Def. de la Costa",
+  "INDEPENDENCIA C.B.P.I": "Independencia C.B.P.I",
+  PAYKYN: "Paykyn",
+  "FONTANA HOCKEY": "Fontana Hockey",
+  "DOAC - ORIONE Atletic Club": "Don Orione AC",
+
 
   // Variantes Capitalizadas (Goleadores, Resultados, Fixture)
   "Club Atlético Estudiante": "CA. Estudiantes",
@@ -56,6 +64,7 @@ const diccionarioEquipos = {
   "Taragüy Rugby Club - CTES": "Taragüy",
   "Club Atlético Bolido Verde": "CA. Bólido Verde",
   "Villa Alvear": "Villa Alvear",
+  VERDE: "CA. Bólido Verde",
 
   // Abreviaciones Scriptcase
   SANFE: "San Fernando",
@@ -65,6 +74,13 @@ const diccionarioEquipos = {
   DONOR: "Don Orione",
   CHACO: "Asoc. Chaco Hockey",
   BODOM: "CA. Bólido Verde",
+  CRR: "Regatas Resistencia",
+  ARAND: "Aranduroga - Ctes",
+  SIXTY: "Sixty",
+  ZAPAL: "CS. Zapallar",
+  DOAC: "Don Orione AC",
+  NBCH: "NBCH",
+  SANFE: "San Fernando"
 };
 
 const diccionarioCanchas = {

@@ -1,7 +1,7 @@
 const { obtenerFixture } = require('./src/scrapers/fixture');
 
 async function empujarAWix() {
-    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/importarFixture";
+    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirFixture";
 
     try {
         console.log("🚀 Paso 1: Extrayendo y procesando datos frescos del SIFECH...");
