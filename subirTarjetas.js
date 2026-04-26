@@ -1,25 +1,25 @@
 /**
- * Orquestador de Resultados.
+ * Orquestador de Tarjetas.
  * Extrae la información desde el scraper y la sincroniza con la base de datos de Wix.
  */
 
-const { obtenerResultados } = require('./src/scrapers/resultados');
+const { obtenerTarjetasDefinitivo } = require('./src/scrapers/tarjetas');
 
-async function sincronizarResultados() {
-    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirResultados";
+async function sincronizarTarjetas() {
+    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirTarjetas";
 
     try {
-        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Resultados...");
+        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Tarjetas...");
         
         // 1. Ejecutar la extracción
-        const resultados = await obtenerResultados();
+        const tarjetas = await obtenerTarjetasDefinitivo();
         
-        if (!resultados || resultados.length === 0) {
-            console.log("⚠️ [Orquestador] El scraper no devolvió resultados. Abortando subida.");
+        if (!tarjetas || tarjetas.length === 0) {
+            console.log("⚠️ [Orquestador] El scraper no devolvió registros. Abortando subida.");
             return;
         }
 
-        console.log(`\n📦 [Orquestador] Preparando paquete con ${resultados.length} resultados listos.`);
+        console.log(`\n📦 [Orquestador] Preparando paquete con ${tarjetas.length} registros en total.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
         // 2. Enviar datos vía POST
@@ -28,10 +28,10 @@ async function sincronizarResultados() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ data: resultados }) 
+            body: JSON.stringify({ data: tarjetas })
         });
 
-        // 3. Validación robusta de la respuesta del servidor (Evita el crash del JSON)
+        // 3. Validación de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -53,4 +53,5 @@ async function sincronizarResultados() {
     }
 }
 
-sincronizarResultados();
+// Ejecutar
+sincronizarTarjetas();

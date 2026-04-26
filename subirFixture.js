@@ -1,25 +1,25 @@
 /**
- * Orquestador de Resultados.
+ * Orquestador de Fixture.
  * Extrae la información desde el scraper y la sincroniza con la base de datos de Wix.
  */
 
-const { obtenerResultados } = require('./src/scrapers/resultados');
+const { obtenerFixture } = require('./src/scrapers/fixture');
 
-async function sincronizarResultados() {
-    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirResultados";
+async function sincronizarFixture() {
+    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirFixture";
 
     try {
-        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Resultados...");
+        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Fixture...");
         
-        // 1. Ejecutar la extracción
-        const resultados = await obtenerResultados();
+        // 1. Ejecutar la extracción (ETL)
+        const partidos = await obtenerFixture();
         
-        if (!resultados || resultados.length === 0) {
-            console.log("⚠️ [Orquestador] El scraper no devolvió resultados. Abortando subida.");
+        if (!partidos || partidos.length === 0) {
+            console.log("⚠️ [Orquestador] El scraper no devolvió partidos. Abortando subida.");
             return;
         }
 
-        console.log(`\n📦 [Orquestador] Preparando paquete con ${resultados.length} resultados listos.`);
+        console.log(`\n📦 [Orquestador] Preparando paquete con ${partidos.length} partidos limpios.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
         // 2. Enviar datos vía POST
@@ -28,10 +28,10 @@ async function sincronizarResultados() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ data: resultados }) 
+            body: JSON.stringify({ data: partidos }) 
         });
 
-        // 3. Validación robusta de la respuesta del servidor (Evita el crash del JSON)
+        // 3. Validación robusta de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -53,4 +53,5 @@ async function sincronizarResultados() {
     }
 }
 
-sincronizarResultados();
+// Ejecutar
+sincronizarFixture();

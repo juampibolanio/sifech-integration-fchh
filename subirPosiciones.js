@@ -1,37 +1,37 @@
 /**
- * Orquestador de Resultados.
- * Extrae la información desde el scraper y la sincroniza con la base de datos de Wix.
+ * Orquestador de Posiciones.
+ * Solicita los datos limpios al scraper y los inyecta en la base de datos de Wix.
  */
 
-const { obtenerResultados } = require('./src/scrapers/resultados');
+const { obtenerPosicionesDefinitivo } = require('./src/scrapers/posiciones');
 
-async function sincronizarResultados() {
-    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirResultados";
+async function sincronizarPosiciones() {
+    const wixUrl = "https://federacionchaquena.wixstudio.com/fchh/_functions/subirPosiciones";
 
     try {
-        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Resultados...");
+        console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Posiciones...");
         
         // 1. Ejecutar la extracción
-        const resultados = await obtenerResultados();
+        const posiciones = await obtenerPosicionesDefinitivo();
         
-        if (!resultados || resultados.length === 0) {
-            console.log("⚠️ [Orquestador] El scraper no devolvió resultados. Abortando subida.");
+        if (!posiciones || posiciones.length === 0) {
+            console.log("⚠️ [Orquestador] El scraper no devolvió equipos. Abortando subida.");
             return;
         }
 
-        console.log(`\n📦 [Orquestador] Preparando paquete con ${resultados.length} resultados listos.`);
+        console.log(`\n📦 [Orquestador] Preparando paquete con ${posiciones.length} posiciones en total.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
-        // 2. Enviar datos vía POST
+        // 2. Enviar datos vía POST a la API de Wix
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ data: resultados }) 
+            body: JSON.stringify({ data: posiciones })
         });
 
-        // 3. Validación robusta de la respuesta del servidor (Evita el crash del JSON)
+        // 3. Validación de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -45,7 +45,7 @@ async function sincronizarResultados() {
             }
         } catch (error) {
             console.error("\n❌ [Orquestador] Error al procesar la respuesta de Wix (No es JSON válido).");
-            console.error("Respuesta cruda:", textResponse);
+            console.error("Respuesta:", textResponse);
         }
 
     } catch (error) {
@@ -53,4 +53,5 @@ async function sincronizarResultados() {
     }
 }
 
-sincronizarResultados();
+// Ejecutar
+sincronizarPosiciones();
