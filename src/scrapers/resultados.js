@@ -1,39 +1,10 @@
 const cheerio = require("cheerio");
 const fs = require("fs");
 const { loginSifech } = require("../auth/sifechLogin");
+const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
-const diccionarioCategorias = {
-  "Primera Caballeros": "1ra Masc.",
-  "Primera Damas": "1ra Fem.",
-  MAMIS: "Mamis",
-  RESERV: "Reserva",
-  "Sub 12 Femenino": "Sub 12 Fem.",
-  "Sub 14 Femenino": "Sub 14 Fem.",
-  "Sub 16 Femenino": "Sub 16 Fem.",
-  "Sub 18 Femenino": "Sub 18 Fem.",
-};
-
-const diccionarioEquipos = {
-  "Club Atlético Estudiante": "CA. Estudiantes",
-  Sarmiento: "Sarmiento",
-  "Asosiacion Civil Chaco Hockey": "Asoc. Chaco Hockey",
-  "Regatas Resistencia": "Regatas Resistencia",
-  "CORRIENTES HOCKEY - CTES": "Corrientes Hockey",
-  "CUNE C.Univ. del Nordeste": "CUNE",
-  "CURNE - Un. Rugby Nord": "CURNE",
-  "Federación Chaqueña de Hockey": "Federación Chaqueña",
-  "QUILMES - CTS": "Quilmes CTS",
-  "San Fernando": "San Fernando",
-  SELECCIONES: "Selecciones",
-  "Sixty Rugby Club": "Sixty",
-  "Tacuarendi Sta Fe": "Tacuarendí",
-  "Taragüy Rugby Club - CTES": "Taragüy",
-  "Club Atlético Bolido Verde": "CA. Bólido Verde",
-  "VILLA ALVEAR": "Villa Alvear",
-};
 
 function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
   if (!nuevasCookiesRaw || nuevasCookiesRaw.length === 0) return cookiesViejas;

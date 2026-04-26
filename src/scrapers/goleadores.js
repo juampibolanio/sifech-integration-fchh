@@ -1,22 +1,6 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-
-// Solo conservamos el diccionario de categorías
-const diccionarioCategorias = {
-  "Primera Caballeros": "1ra Masc.",
-  "Primera Damas": "1ra Fem.",
-  "MAMIS": "Mamis",
-  "Mamis": "Mamis",
-  "RESERV": "Reserva",
-  "Reserva": "Reserva",
-  "Sub 12 Femenino": "Sub 12 Fem.",
-  "Sub 14 Femenino": "Sub 14 Fem.",
-  "Sub 16 Femenino": "Sub 16 Fem.",
-  "Sub 18 Femenino": "Sub 18 Fem.",
-  "Sub 19 Femenino": "Sub 19 Fem.",
-  "1CABAL": "1ra Masc.",
-  "1DAMAS": "1ra Fem."
-};
+const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
 
 // Función para poner la primera letra en mayúscula 
 function formatearNombre(nombreCompleto) {

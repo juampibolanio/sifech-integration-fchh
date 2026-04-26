@@ -1,49 +1,9 @@
 const cheerio = require("cheerio");
 const fs = require("fs");
 const { loginSifech } = require("../auth/sifechLogin");
+const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
-// 👇 NUEVO: DICCIONARIOS DE TRADUCCIÓN (ETL) 👇
-const diccionarioCategorias = {
-    "1CABAL": "1ra Masc.",
-    "1DAMAS": "1ra Fem.",
-    "MAMIS": "Mamis",
-    "RESERV": "Reserva",
-    "SUB12F": "Sub 12 Fem.",
-    "SUB14F": "Sub 14 Fem.",
-    "SUB16F": "Sub 16 Fem.",
-    "SUB18F": "Sub 18 Fem."
-};
-
-// Agregá acá todos los equipos que vayas viendo feos en el sistema
-const diccionarioEquipos = {
-    "Club Atlético Estudiante": "CA. Estudiantes",
-    "Sarmiento": "Sarmiento",
-    "Asosiacion Civil Chaco Hockey": "Asoc. Chaco Hockey",
-    "Regatas Resistencia": "Regatas Resistencia",
-    "CORRIENTES HOCKEY - CTES": "Corrientes Hockey",
-    "CUNE C.Univ. del Nordeste": "CUNE",
-    "CURNE - Un. Rugby Nord": "CURNE",
-    "Federación Chaqueña de Hockey": "Federación Chaqueña",
-    "QUILMES - CTS": "Quilmes CTS",
-    "San Fernando": "San Fernando",
-    "SELECCIONES": "Selecciones",
-    "Sixty Rugby Club": "Sixty",
-    "Tacuarendi Sta Fe": "Tacuarendí",
-    "Taragüy Rugby Club - CTES": "Taragüy",
-    "Club Atlético Bolido Verde": "CA. Bólido Verde",
-    "VILLA ALVEAR": "Villa Alvear"
-};
-
-const diccionarioCanchas = {
-    "Federación Chaqueña de Hockey": "Federación",
-    "CUNE": "CUNE",
-    "REGATAS": "Regatas",
-    "SM CANCHA": "San Martín",
-    "SIN CANCHA": "Cancha no asig."
-};
-// 👆 FIN DICCIONARIOS 👆
 
 function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
   if (!nuevasCookiesRaw || nuevasCookiesRaw.length === 0) return cookiesViejas;

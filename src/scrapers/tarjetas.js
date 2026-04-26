@@ -1,49 +1,7 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
 const fs = require("fs");
-
-const diccionarioCategorias = {
-  "Primera Caballeros": "1ra Masc.",
-  "Primera Damas": "1ra Fem.",
-  "MAMIS": "Mamis",
-  "Mamis": "Mamis",
-  "RESERV": "Reserva",
-  "Reserva": "Reserva",
-  "Sub 12 Femenino": "Sub 12 Fem.",
-  "Sub 14 Femenino": "Sub 14 Fem.",
-  "Sub 16 Femenino": "Sub 16 Fem.",
-  "Sub 18 Femenino": "Sub 18 Fem.",
-  "Sub 19 Femenino": "Sub 19 Fem.",
-  "1CABAL": "1ra Masc.",
-  "1DAMAS": "1ra Fem."
-};
-
-const diccionarioEquipos = {
-  "CLUB ATLÉTICO ESTUDIANTE": "CA. Estudiantes",
-  "SARMIENTO": "Sarmiento",
-  "ASOSIACION CIVIL CHACO HOCKEY": "Asoc. Chaco Hockey",
-  "REGATAS RESISTENCIA": "Regatas Resistencia",
-  "CORRIENTES HOCKEY - CTES": "Corrientes Hockey",
-  "CUNE C.UNIV. DEL NORDESTE": "CUNE",
-  "CURNE - UN. RUGBY NORD": "CURNE",
-  "FEDERACIÓN CHAQUEÑA DE HOCKEY": "Federación Chaqueña",
-  "QUILMES - CTS": "Quilmes CTS",
-  "SAN FERNANDO": "San Fernando",
-  "SELECCIONES": "Selecciones",
-  "SIXTY RUGBY CLUB": "Sixty",
-  "TACUARENDI STA FE": "Tacuarendí",
-  "TARAGÜY RUGBY CLUB - CTES": "Taragüy",
-  "CLUB ATLÉTICO BOLIDO VERDE": "CA. Bólido Verde",
-  "VILLA ALVEAR": "Villa Alvear",
-  "SANFE": "San Fernando",
-  "CHOCK": "Corrientes Hockey",
-  "CRRHO": "CURNE",
-  "TACUA": "Tacuarendí",
-  "DONOR": "Don Orione",
-  "CHACO": "Asoc. Chaco Hockey",
-  "BODOM": "CA. Bólido Verde",
-  "NBCH": "NBCH"
-};
+const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
 
 // 👇 MAGIA 1: Separar la coma con un espacio y capitalizar
 function formatearNombre(nombreCompleto) {
