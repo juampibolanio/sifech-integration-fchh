@@ -9,6 +9,10 @@ const { sincronizarTarjetas } = require("./subirTarjetas");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.get("/", (req, res) => {
+    res.status(200).send("Servidor de SIFECH despierto y operativo");
+});
+
 // LLAVE DE SEGURIDAD
 const API_KEY_SECRETA = process.env.API_KEY;
 
