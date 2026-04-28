@@ -54,4 +54,8 @@ async function sincronizarGoleadores() {
 }
 
 // Ejecutar el orquestador
-sincronizarGoleadores();
+module.exports = { sincronizarGoleadores }
+// Ejecutar
+if (require.main === module) {
+    sincronizarGoleadores();
+}

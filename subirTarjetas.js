@@ -54,4 +54,8 @@ async function sincronizarTarjetas() {
 }
 
 // Ejecutar
-sincronizarTarjetas();
+module.exports = { sincronizarTarjetas }
+// Ejecutar
+if (require.main === module) {
+    sincronizarTarjetas();
+}

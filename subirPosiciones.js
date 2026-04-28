@@ -53,5 +53,8 @@ async function sincronizarPosiciones() {
     }
 }
 
+module.exports = { sincronizarPosiciones }
 // Ejecutar
-sincronizarPosiciones();
+if (require.main === module) {
+    sincronizarPosiciones();
+}

@@ -53,4 +53,8 @@ async function sincronizarResultados() {
     }
 }
 
-sincronizarResultados();
+module.exports = { sincronizarResultados }
+// Ejecutar
+if (require.main === module) {
+    sincronizarResultados();
+}

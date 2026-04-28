@@ -53,5 +53,8 @@ async function sincronizarFixture() {
     }
 }
 
+module.exports = { sincronizarFixture }
 // Ejecutar
-sincronizarFixture();
+if (require.main === module) {
+    sincronizarFixture();
+}
