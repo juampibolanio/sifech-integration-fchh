@@ -6,6 +6,8 @@ const { sincronizarPosiciones } = require("./subirPosiciones");
 const { sincronizarGoleadores } = require("./subirGoleadores");
 const { sincronizarTarjetas } = require("./subirTarjetas");
 
+let sincronizacionEnCurso = false;
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -90,10 +92,18 @@ app.get("/api/sync/tarjetas", async (req, res) => {
 // ==========================================
 
 app.get("/api/sync/todo", async (req, res) => {
+    // 1. Verificamos el candado
+    if (sincronizacionEnCurso) {
+        console.warn("⚠️ [Servidor] Intento de sincronización rechazado. Ya hay una en curso.");
+        return res.status(429).json({ 
+            success: false, 
+            message: "Ya hay una sincronización ejecutándose. Por favor, esperá a que termine." 
+        });
+    }
+
+    // 2. Cerramos el candado
+    sincronizacionEnCurso = true;
     console.log("☢️ [Servidor] Petición recibida: SINCRONIZACIÓN GLOBAL INICIADA");
-    
-    // Le avisamos rápido a Wix que ya empezamos, porque hacer todo lleva tiempo 
-    // y no queremos que la petición se quede colgada esperando.
     res.json({ success: true, message: "Sincronización global iniciada en segundo plano." });
 
     try {
@@ -115,6 +125,10 @@ app.get("/api/sync/todo", async (req, res) => {
         console.log("✅ [Servidor] Sincronización Global Completada al 100%");
     } catch (error) {
         console.error("💥 [Servidor] Error durante la sincronización global:", error.message);
+    } finally {
+        // 3. Abrimos el candado termine bien o termine mal
+        sincronizacionEnCurso = false;
+        console.log("🔓 [Servidor] Candado liberado. Listo para nuevas peticiones.");
     }
 });
 
