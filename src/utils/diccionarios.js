@@ -68,7 +68,7 @@ const diccionarioEquipos = {
 
   // Abreviaciones Scriptcase
   SANFE: "San Fernando",
-  CHOCK: "Corrientes Hockey",
+  CHOCK: "Chaco Hockey",
   CRRHO: "CURNE",
   TACUA: "Tacuarendí",
   DONOR: "Don Orione",
