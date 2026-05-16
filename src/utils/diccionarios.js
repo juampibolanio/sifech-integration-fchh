@@ -1,7 +1,3 @@
-// ==========================================
-// DICCIONARIOS CENTRALIZADOS SIFECH -> WIX
-// ==========================================
-
 const diccionarioCategorias = {
   "Primera Caballeros": "1ra Masc.",
   "1CABAL": "1ra Masc.",
@@ -23,11 +19,10 @@ const diccionarioCategorias = {
 };
 
 const diccionarioEquipos = {
-  // Variantes en Mayúsculas (Tablas de Posiciones, Tarjetas, etc)
   "CLUB ATLÉTICO ESTUDIANTE": "CA. Estudiantes",
   SARMIENTO: "Sarmiento",
   "ASOSIACION CIVIL CHACO HOCKEY": "Asoc. Chaco Hockey",
-  "REGATAS RESISTENCIA": "Regatas Resistencia",
+  "REGATAS RESISTENCIA": "Regatas",
   "CORRIENTES HOCKEY - CTES": "Corrientes Hockey",
   "CUNE C.UNIV. DEL NORDESTE": "CUNE",
   "CURNE - UN. RUGBY NORD": "CURNE",
@@ -50,11 +45,10 @@ const diccionarioEquipos = {
   "DOAC - ORIONE Atletic Club": "Don Orione AC",
 
 
-  // Variantes Capitalizadas (Goleadores, Resultados, Fixture)
   "Club Atlético Estudiante": "CA. Estudiantes",
   Sarmiento: "Sarmiento",
   "Asosiacion Civil Chaco Hockey": "Asoc. Chaco Hockey",
-  "Regatas Resistencia": "Regatas Resistencia",
+  "Regatas Resistencia": "Regatas",
   "CUNE C.Univ. del Nordeste": "CUNE",
   "CURNE - Un. Rugby Nord": "CURNE",
   "Federación Chaqueña de Hockey": "Federación Chaqueña",
@@ -66,19 +60,18 @@ const diccionarioEquipos = {
   "Villa Alvear": "Villa Alvear",
   VERDE: "CA. Bólido Verde",
 
-  // Abreviaciones Scriptcase
   SANFE: "San Fernando",
   CHOCK: "Chaco Hockey",
-  CRRHO: "CURNE",
+  CRRHO: "Regatas",
   TACUA: "Tacuarendí",
   DONOR: "Don Orione",
   CHACO: "Asoc. Chaco Hockey",
   BODOM: "CA. Bólido Verde",
-  CRR: "Regatas Resistencia",
+  CRR: "Regatas",
   ARAND: "Aranduroga - Ctes",
   SIXTY: "Sixty",
   ZAPAL: "CS. Zapallar",
-  DOAC: "Don Orione AC",
+  DOAC: "DOAC",
   NBCH: "NBCH",
   SANFE: "San Fernando"
 };
@@ -91,7 +84,6 @@ const diccionarioCanchas = {
   "SIN CANCHA": "Cancha no asig.",
 };
 
-// Exportamos los tres diccionarios para que puedan ser usados en otros archivos
 module.exports = {
   diccionarioCategorias,
   diccionarioEquipos,
