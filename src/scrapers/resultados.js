@@ -10,10 +10,7 @@ function formatearNombre(nombreCompleto) {
     });
 }
 
-function limpiarTorneo(torneoCrudo) {
-    if (!torneoCrudo) return "";
-    return torneoCrudo.replace(/\?/g, 'ó').trim(); 
-}
+// Ya no usamos limpiarTorneo para no alterar el nombre original
 
 async function obtenerResultados() {
     console.log("🚀 [Scraper] Encendiendo Puppeteer para buscar Resultados...");
@@ -83,25 +80,44 @@ async function obtenerResultados() {
         const $ = cheerio.load(html);
         const resultados = [];
 
-        let currentTorneo = "Campeonato Oficial";
-        let currentFecha = "";
+        // Valores por defecto
+        let currentTorneo = "CAMPEONATO Oficial Capital"; 
+        let currentFecha = "1";
         let currentCategoria = "";
 
         $("tr").each((i, fila) => {
-            const blockFont = $(fila).find(".scGridBlockFont");
-            if (blockFont.length > 0) {
-                let textoBloque = blockFont.text().replace(/\s+/g, " ").trim();
+            // ====================================================
+            // NUEVO SISTEMA INDESTRUCTIBLE PARA LEER TÍTULOS
+            // ====================================================
+            const blockFontTds = $(fila).find(".scGridBlockFont td");
+            if (blockFontTds.length > 0) {
+                let labelEncontrado = "";
+                let valorEncontrado = "";
 
-                // NUEVO: Regex láser para ignorar íconos [-] y atrapar el valor exacto
-                if (/Torneo/i.test(textoBloque)) {
-                    currentTorneo = limpiarTorneo(textoBloque.replace(/.*Torneo/i, "").replace(/^[:\-\s]+/, "").trim());
-                } else if (/Fecha/i.test(textoBloque)) {
-                    currentFecha = textoBloque.replace(/.*Fecha/i, "").replace(/^[:\-\s]+/, "").trim();
-                } else if (/Categor[ií]a/i.test(textoBloque)) {
-                    currentCategoria = textoBloque.replace(/.*Categor[ií]a/i, "").replace(/^[:\-\s]+/, "").trim();
-                }
+                blockFontTds.each((idx, td) => {
+                    let txt = $(td).text().trim();
+                    // Buscamos la palabra clave
+                    if (txt === "Torneo" || txt === "Fecha" || txt === "Categoria" || txt === "Categoría") {
+                        labelEncontrado = txt;
+                        // Buscamos el valor en las celdas siguientes, ignorando íconos o ":"
+                        for (let k = idx + 1; k < blockFontTds.length; k++) {
+                            let nextTxt = $(blockFontTds[k]).text().trim();
+                            if (nextTxt !== "" && nextTxt !== ":") {
+                                valorEncontrado = nextTxt;
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
+                if (labelEncontrado === "Fecha") currentFecha = valorEncontrado;
+                if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
             }
 
+            // ====================================================
+            // EXTRACCIÓN DE LOS PARTIDOS
+            // ====================================================
             if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
                 let textosFila = [];
                 $(fila).find("td").each((j, celda) => {
@@ -109,6 +125,7 @@ async function obtenerResultados() {
                     textosFila.push(texto);
                 });
 
+                // Limpieza de columnas invisibles iniciales
                 while (textosFila.length > 0 && textosFila[0] === "") {
                     textosFila.shift();
                 }
@@ -130,8 +147,7 @@ async function obtenerResultados() {
                     let visitaLimpia = (divVisita && divVisita.toUpperCase() !== "A") ? `${equipoVisitaBase} ${divVisita}` : equipoVisitaBase;
 
                     resultados.push({
-                        torneo: currentTorneo, 
-                        // NUEVO: Forzamos la fecha a ser Número para que Wix no tire error
+                        torneo: currentTorneo, // ¡Ahora sí guardará el verdadero nombre del torneo!
                         numero_fecha: parseInt(currentFecha) || 1, 
                         categoria: categoriaLimpia,
                         dia_fecha: "",
