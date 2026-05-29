@@ -161,9 +161,7 @@ async function obtenerPosicionesDefinitivo() {
             formatearNombre(clubCrudo);
 
           // Si encontramos división, se la pegamos al nombre (Ej: "Regatas Resistencia B")
-          let equipoLimpio = divisionCruda
-            ? `${equipoBase} ${divisionCruda}`
-            : equipoBase;
+          let equipoLimpio = (divisionCruda && divisionCruda.toUpperCase() !== "A") ? `${equipoBase} ${divisionCruda}` : equipoBase;
 
           posicionesCrudas.push({
             torneo: currentTorneo,

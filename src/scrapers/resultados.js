@@ -1,18 +1,21 @@
 const cheerio = require("cheerio");
 const fs = require("fs");
 const { loginSifech } = require("../auth/sifechLogin");
-const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
+const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-/**
- * Formatea nombres a Title Case por si el equipo no está en el diccionario
- */
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";
-    return nombreCompleto.toLowerCase().replace(/(?:^|[\s,-])\w/g, function(match) {
+    let nombre = nombreCompleto.replace(/,\s*/g, ', ').replace(/\s+/g, ' ').trim();
+    return nombre.toLowerCase().replace(/(?:^|[\s,-])\w/g, function(match) {
         return match.toUpperCase();
     });
+}
+
+function limpiarTorneo(torneoCrudo) {
+    if (!torneoCrudo) return "";
+    return torneoCrudo.replace(/\?/g, 'ó').trim(); 
 }
 
 function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
@@ -34,10 +37,6 @@ function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
         .join("; ");
 }
 
-/**
- * Scraper principal de Resultados.
- * Se conecta mediante Auth, extrae la tabla expandida y procesa los goles.
- */
 async function obtenerResultados() {
     const urlBase = "https://www.fchh.com.ar";
     const urlGrid = urlBase + "/sys/grid_resultados_bak/grid_resultados_bak.php";
@@ -70,7 +69,7 @@ async function obtenerResultados() {
         console.log(`🎯 [Scraper] Token obtenido: ${scriptCaseInit}`);
 
         console.log("⏳ [Scraper] Expandiendo la tabla para leer todos los datos de golpe...");
-        const formPaginacion = `nmgp_opcao=alterar_quant_linhas&nmgp_quant_linhas=2000&script_case_init=${scriptCaseInit}`;
+        const formPaginacion = `nmgp_opcao=alterar_quant_linhas&nmgp_quant_linhas=500&script_case_init=${scriptCaseInit}`;
 
         const resExpandido = await fetch(urlGrid, {
             method: "POST",
@@ -83,55 +82,63 @@ async function obtenerResultados() {
             body: formPaginacion,
         });
 
-        // Decodificamos ISO-8859-1 para respetar tildes y ñ
         const arrayBuffer = await resExpandido.arrayBuffer();
         const htmlCompleto = new TextDecoder("iso-8859-1").decode(arrayBuffer);
         const $ = cheerio.load(htmlCompleto);
 
         console.log("📥 [Scraper] Extrayendo y agrupando datos de los partidos...");
         const resultados = [];
+        
+        let currentTorneo = "Campeonato Oficial";
         let currentFecha = "";
         let currentCategoria = "";
 
         $("tr").each((i, fila) => {
-            // 1. Detectar Agrupadores
             const agrupadorTd = $(fila).find(".scGridBlockFont table tr td");
             if (agrupadorTd.length === 3) {
                 let etiqueta = $(agrupadorTd[0]).text().trim();
                 let valor = $(agrupadorTd[2]).text().trim();
 
+                if (etiqueta === "Torneo") currentTorneo = limpiarTorneo(valor);
                 if (etiqueta === "Fecha") currentFecha = valor;
                 if (etiqueta === "Categoria") currentCategoria = valor;
             }
 
-            // 2. Extraer fila de partido
             if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
-                const celdas = $(fila).find("td");
+                let textosFila = [];
+                $(fila).find("td").each((j, celda) => {
+                    let texto = $(celda).text().replace(/\u00a0/g, " ").trim();
+                    textosFila.push(texto);
+                });
 
-                if (celdas.length >= 7) {
-                    let localCrudo = $(celdas[1]).text().trim();
-                    let visitaCruda = $(celdas[3]).text().trim();
-                    let golesLocal = $(celdas[5]).text().trim();
-                    let golesVisitante = $(celdas[6]).text().trim();
+                if (textosFila.length >= 7 && textosFila[1] !== "Local" && textosFila[1] !== "") {
+                    let localCrudo = textosFila[1];
+                    let divLocal = textosFila[2]; 
+                    let visitaCruda = textosFila[3];
+                    let divVisita = textosFila[4]; 
+                    let golesLocal = textosFila[5];
+                    let golesVisitante = textosFila[6];
 
-                    if (localCrudo !== "" && localCrudo !== "Local") {
-                        let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
-                        
-                        // Traducción robusta de equipos
-                        let localLimpio = diccionarioEquipos[localCrudo.toUpperCase()] || diccionarioEquipos[localCrudo] || formatearNombre(localCrudo);
-                        let visitaLimpia = diccionarioEquipos[visitaCruda.toUpperCase()] || diccionarioEquipos[visitaCruda] || formatearNombre(visitaCruda);
+                    let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
+                    
+                    let equipoLocalBase = diccionarioEquipos[localCrudo.toUpperCase()] || formatearNombre(localCrudo);
+                    let equipoVisitaBase = diccionarioEquipos[visitaCruda.toUpperCase()] || formatearNombre(visitaCruda);
 
-                        resultados.push({
-                            numero_fecha: currentFecha,
-                            categoria: categoriaLimpia,
-                            dia_fecha: "",
-                            hora: "A definir",
-                            equipo_local: localLimpio,
-                            goles_local: golesLocal,
-                            equipo_visitante: visitaLimpia,
-                            goles_visitante: golesVisitante,
-                        });
-                    }
+                    // REGLA APLICADA: Solo sumamos la división si NO es "A"
+                    let localLimpio = (divLocal && divLocal.toUpperCase() !== "A") ? `${equipoLocalBase} ${divLocal}` : equipoLocalBase;
+                    let visitaLimpia = (divVisita && divVisita.toUpperCase() !== "A") ? `${equipoVisitaBase} ${divVisita}` : equipoVisitaBase;
+
+                    resultados.push({
+                        torneo: currentTorneo, 
+                        numero_fecha: currentFecha,
+                        categoria: categoriaLimpia,
+                        dia_fecha: "",
+                        hora: "A definir",
+                        equipo_local: localLimpio,
+                        goles_local: parseInt(golesLocal) || 0,
+                        equipo_visitante: visitaLimpia,
+                        goles_visitante: parseInt(golesVisitante) || 0,
+                    });
                 }
             }
         });
@@ -146,10 +153,3 @@ async function obtenerResultados() {
 }
 
 module.exports = { obtenerResultados };
-
-// Bloque de pruebas local
-if (require.main === module) {
-    obtenerResultados()
-        .then(data => { if(data.length > 0) console.log("👉 Ejemplo:", data[0]) })
-        .catch(console.error);
-}
