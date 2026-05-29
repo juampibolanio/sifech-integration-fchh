@@ -43,6 +43,7 @@ const diccionarioEquipos = {
   PAYKYN: "Paykyn",
   "FONTANA HOCKEY": "Fontana Hockey",
   "DOAC - ORIONE Atletic Club": "Don Orione AC",
+  "CAS": "Sarmiento",
 
 
   "Club Atlético Estudiante": "CA. Estudiantes",

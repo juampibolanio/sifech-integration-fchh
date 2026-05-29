@@ -29,7 +29,6 @@ async function obtenerGoleadoresDefinitivo() {
 
         if (!hizoClic) throw new Error("Enlace de Goleadores no encontrado en el menú.");
         
-        // MÁS TIEMPO DE ESPERA PARA QUE SIFECH CARGUE EL IFRAME
         await new Promise((r) => setTimeout(r, 8000));
 
         let iframeGoleadores = null;
@@ -42,113 +41,124 @@ async function obtenerGoleadoresDefinitivo() {
 
         if (!iframeGoleadores) throw new Error("El Iframe de Goleadores no cargó correctamente.");
 
-        console.log("⏳ [Scraper] Esperando a que el menú de paginación esté visible...");
-        try {
-            // Freno de mano: Esperamos hasta 10 segundos a que aparezca el botón mágico de SIFECH
-            await iframeGoleadores.waitForSelector('select[name="nmgp_quant_linhas"]', { timeout: 10000 });
-        } catch(e) {
-            console.log("⚠️ [Scraper] El menú tardó mucho en aparecer, intentando inyectar igual...");
-        }
-
-        console.log("🔓 [Scraper] Inyectando la opción de 500 registros en el menú...");
-        const paginacionExitosa = await iframeGoleadores.evaluate(() => {
-            let selectPag = document.querySelector('select[name="nmgp_quant_linhas"]');
-            if (selectPag) {
-                let opt = document.createElement('option');
-                opt.value = "500";
-                opt.innerHTML = "500";
-                selectPag.appendChild(opt);
-                selectPag.value = "500";
-                selectPag.dispatchEvent(new Event('change')); 
-                return true;
-            }
-            return false;
-        });
-
-        if (!paginacionExitosa) {
-            console.log("⚠️ [Scraper] No se encontró el paginador. Extrayendo lo visible...");
-        } else {
-            console.log("⏳ [Scraper] Esperando 10 segundos a que carguen todos los goleadores...");
-            await new Promise((r) => setTimeout(r, 10000));
-
-            for (const frame of page.frames()) {
-                if (frame.url().includes("grid_tabla_goleadores")) {
-                    iframeGoleadores = frame;
-                    break;
-                }
-            }
-        }
-
-        console.log("📥 [Scraper] Leyendo tabla y aplicando diccionarios...");
-        const html = await iframeGoleadores.content();
-        const $ = cheerio.load(html);
-
         const goleadoresCrudos = [];
         const idsGuardados = new Set();
+        
+        // Variables que NO se reinician para que mantengan la memoria al cambiar de página
         let currentTorneo = "CAMPEONATO Oficial Capital";
         let currentCategoria = "General";
+        
+        let hayMasPaginas = true;
+        let paginasLeidas = 1;
 
-        $("tr").each((_, fila) => {
-            // Lector de títulos indestructible (igual que en Resultados)
-            const blockFontTds = $(fila).find(".scGridBlockFont td");
-            if (blockFontTds.length > 0) {
-                let labelEncontrado = "";
-                let valorEncontrado = "";
+        // =======================================================
+        // EL BUCLE PAGINADOR: Lee y hace clic en "Siguiente"
+        // =======================================================
+        while (hayMasPaginas && paginasLeidas <= 10) { // Límite de seguridad de 10 páginas
+            console.log(`📥 [Scraper] Leyendo página ${paginasLeidas} de Goleadores...`);
+            
+            const html = await iframeGoleadores.content();
+            const $ = cheerio.load(html);
 
-                blockFontTds.each((idx, td) => {
-                    let txt = $(td).text().trim();
-                    if (txt === "Torneo" || txt === "Categoria" || txt === "Categoría") {
-                        labelEncontrado = txt;
-                        for (let k = idx + 1; k < blockFontTds.length; k++) {
-                            let nextTxt = $(blockFontTds[k]).text().trim();
-                            if (nextTxt !== "" && nextTxt !== ":") {
-                                valorEncontrado = nextTxt;
-                                break;
+            $("tr").each((_, fila) => {
+                const blockFontTds = $(fila).find(".scGridBlockFont td");
+                if (blockFontTds.length > 0) {
+                    let labelEncontrado = "";
+                    let valorEncontrado = "";
+
+                    blockFontTds.each((idx, td) => {
+                        let txt = $(td).text().trim();
+                        if (txt === "Torneo" || txt === "Categoria" || txt === "Categoría") {
+                            labelEncontrado = txt;
+                            for (let k = idx + 1; k < blockFontTds.length; k++) {
+                                let nextTxt = $(blockFontTds[k]).text().trim();
+                                if (nextTxt !== "" && nextTxt !== ":") {
+                                    valorEncontrado = nextTxt;
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
+                    if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
+                }
+
+                if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
+                    let textosFila = [];
+                    $(fila).find("td").each((_, celda) => {
+                        let texto = $(celda).text().replace(/\u00a0/g, " ").trim();
+                        textosFila.push(texto);
+                    });
+
+                    while (textosFila.length > 0 && textosFila[0] === "") {
+                        textosFila.shift();
+                    }
+
+                    if (textosFila.length >= 3 && !textosFila.includes("Jugador")) {
+                        let golesCrudos = textosFila[textosFila.length - 1];
+                        let clubCrudo = textosFila[textosFila.length - 2];
+                        let jugCrudo = textosFila[textosFila.length - 3];
+
+                        if (jugCrudo && clubCrudo && !isNaN(parseInt(golesCrudos))) {
+                            let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
+                            let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo);
+                            let nombreLimpio = formatearNombre(jugCrudo);
+
+                            let uid = `${categoriaLimpia}-${nombreLimpio}-${equipoLimpio}-${currentTorneo}`;
+
+                            if (!idsGuardados.has(uid)) {
+                                idsGuardados.add(uid);
+                                goleadoresCrudos.push({
+                                    torneo: currentTorneo, 
+                                    categoria: categoriaLimpia,
+                                    posicion: 0,
+                                    jugador: nombreLimpio,
+                                    equipo: equipoLimpio,
+                                    goles: parseInt(golesCrudos) || 0,
+                                });
                             }
                         }
                     }
-                });
+                }
+            });
 
-                if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
-                if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
-            }
+            console.log(`📊 [Scraper] Jugadores acumulados hasta ahora: ${goleadoresCrudos.length}`);
 
-            // Detección de jugadores
-            if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
-                let textosFila = [];
-                $(fila).find("td").each((_, celda) => {
-                    let texto = $(celda).text().replace(/\u00a0/g, " ").trim();
-                    if (texto !== "") textosFila.push(texto);
-                });
+            console.log("⏭️ [Scraper] Intentando pasar a la siguiente página...");
+            const avanzamos = await iframeGoleadores.evaluate(() => {
+                // Buscamos el botón de avanzar ">"
+                let btnAdelante = document.getElementById('forward_bot') || document.getElementById('forward_top');
+                
+                // Chequeamos que no esté deshabilitado (lo cual pasa en la última página)
+                if (btnAdelante && !btnAdelante.disabled && btnAdelante.style.display !== 'none') {
+                    btnAdelante.click();
+                    return true;
+                }
+                return false;
+            });
 
-                if (textosFila.length >= 4) {
-                    let jugCrudo = textosFila[1];
-                    let clubCrudo = textosFila[2];
-                    let golesCrudos = textosFila[textosFila.length - 1];
+            if (avanzamos) {
+                paginasLeidas++;
+                console.log(`⏳ [Scraper] Esperando 5 segundos a que cargue la página ${paginasLeidas}...`);
+                await new Promise((r) => setTimeout(r, 5000));
 
-                    if (jugCrudo !== "Jugador" && !isNaN(parseInt(golesCrudos))) {
-                        let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
-                        let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo);
-                        let nombreLimpio = formatearNombre(jugCrudo);
-
-                        let uid = `${categoriaLimpia}-${nombreLimpio}-${equipoLimpio}-${currentTorneo}`;
-
-                        if (!idsGuardados.has(uid)) {
-                            idsGuardados.add(uid);
-                            goleadoresCrudos.push({
-                                torneo: currentTorneo, 
-                                categoria: categoriaLimpia,
-                                posicion: 0,
-                                jugador: nombreLimpio,
-                                equipo: equipoLimpio,
-                                goles: parseInt(golesCrudos) || 0,
-                            });
-                        }
+                // Volvemos a enganchar el iframe por las dudas
+                for (const frame of page.frames()) {
+                    if (frame.url().includes("grid_tabla_goleadores")) {
+                        iframeGoleadores = frame;
+                        break;
                     }
                 }
+            } else {
+                console.log("✅ [Scraper] No hay botón de siguiente habilitado. Fin de la tabla.");
+                hayMasPaginas = false;
             }
-        });
+        }
 
+        // =======================================================
+        // PROCESAMIENTO FINAL (Cálculo del Top 10)
+        // =======================================================
         console.log("🧹 [Scraper] Calculando Top 10 por Torneo y Categoría...");
         const goleadoresAgrupados = {};
 
@@ -164,6 +174,7 @@ async function obtenerGoleadoresDefinitivo() {
 
         for (const llave in goleadoresAgrupados) {
             let jugadoresCat = goleadoresAgrupados[llave];
+            
             jugadoresCat.sort((a, b) => b.goles - a.goles);
 
             let top10 = jugadoresCat.slice(0, 10).map((jugador, index) => {
@@ -174,7 +185,7 @@ async function obtenerGoleadoresDefinitivo() {
             goleadoresTop10 = goleadoresTop10.concat(top10);
         }
 
-        console.log(`🎉 [Scraper] Extracción exitosa. Registros finales: ${goleadoresTop10.length}`);
+        console.log(`🎉 [Scraper] Extracción exitosa. Registros finales procesados: ${goleadoresTop10.length}`);
         await browser.close();
         
         return goleadoresTop10;
