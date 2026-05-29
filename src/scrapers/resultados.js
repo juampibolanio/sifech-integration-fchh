@@ -113,14 +113,20 @@ async function obtenerResultados() {
     let currentCategoria = "";
 
     $("tr").each((i, fila) => {
-      const agrupadorTd = $(fila).find(".scGridBlockFont table tr td");
-      if (agrupadorTd.length === 3) {
-        let etiqueta = $(agrupadorTd[0]).text().trim();
-        let valor = $(agrupadorTd[2]).text().trim();
+      const blockFont = $(fila).find(".scGridBlockFont");
+      if (blockFont.length > 0) {
+        // Leemos todo el texto de la fila azul y limpiamos espacios extra
+        let textoBloque = blockFont.text().replace(/\s+/g, " ").trim();
 
-        if (etiqueta === "Torneo") currentTorneo = limpiarTorneo(valor);
-        if (etiqueta === "Fecha") currentFecha = valor;
-        if (etiqueta === "Categoria") currentCategoria = valor;
+        // Buscamos las palabras clave en el texto completo
+        if (textoBloque.includes("Torneo ")) {
+            currentTorneo = limpiarTorneo(textoBloque.split("Torneo ")[1]);
+        } else if (textoBloque.includes("Fecha ")) {
+            currentFecha = textoBloque.split("Fecha ")[1].trim();
+        } else if (textoBloque.match(/Categor[ií]a /i)) {
+            // Atrapa Categoría con o sin tilde y guarda lo que sigue
+            currentCategoria = textoBloque.replace(/.*Categor[ií]a /i, "").trim();
+        }
       }
 
       if (
