@@ -1,7 +1,6 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-const fs = require("fs");
-const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = require("../utils/diccionarios");
+const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
 
 /**
  * Formatea nombres de jugadores a Title Case (ej: "Garcia, María Eugenia")
@@ -16,17 +15,8 @@ function formatearNombre(nombreCompleto) {
 }
 
 /**
- * Limpia caracteres mal codificados del sistema SIFECH.
- */
-function limpiarTorneo(torneoCrudo) {
-    if (!torneoCrudo) return "";
-    return torneoCrudo.replace(/\?/g, 'ó').trim(); 
-}
-
-/**
- * Scraper principal de Tarjetas.
- * Extrae jugadores sancionados, interpreta categorías agrupadas y ordena por gravedad de tarjeta.
- * @returns {Promise<Array>} Array de objetos con las tarjetas formateadas.
+ * Scraper principal de Tarjetas con Paginación Humana.
+ * Navega página por página para burlar el límite de SIFECH.
  */
 async function obtenerTarjetasDefinitivo() {
     console.log("🚀 [Scraper] Encendiendo Puppeteer para buscar Tarjetas...");
@@ -35,12 +25,10 @@ async function obtenerTarjetasDefinitivo() {
     const page = await browser.newPage();
 
     try {
-        // 1. Navegación inicial
         console.log("🌐 [Scraper] Entrando a la página oficial de SIFECH...");
         await page.goto("https://www.fchh.com.ar/sys/menu/menu.php", { waitUntil: "networkidle2" });
         await new Promise((r) => setTimeout(r, 3000));
 
-        // 2. Cargar tabla de Tarjetas
         console.log("🖱️ [Scraper] Forzando la carga de la Tabla de Tarjetas...");
         const hizoClic = await page.evaluate(() => {
             const enlaceSecreto = document.querySelector('a[href*="grid_tabla_tarjetas"]');
@@ -52,9 +40,8 @@ async function obtenerTarjetasDefinitivo() {
         });
 
         if (!hizoClic) throw new Error("No encontré el enlace de tarjetas.");
-        await new Promise((r) => setTimeout(r, 6000));
+        await new Promise((r) => setTimeout(r, 8000)); // Damos buen tiempo de carga
 
-        // 3. Localizar Iframe
         let iframeTarjetas = null;
         for (const frame of page.frames()) {
             if (frame.url().includes("grid_tabla_tarjetas")) {
@@ -65,88 +52,132 @@ async function obtenerTarjetasDefinitivo() {
 
         if (!iframeTarjetas) throw new Error("No se encontró el Iframe de tarjetas.");
 
-        // 4. Paginación (Intento de expandir a 500 filas)
-        console.log("🔓 [Scraper] Interactuando con el menú desplegable 'Ver X líneas'...");
-        const paginacionExitosa = await iframeTarjetas.evaluate(() => {
-            let selectPag = document.querySelector('select[name="nmgp_quant_linhas"]');
-            if (selectPag) {
-                let opt = document.createElement('option');
-                opt.value = "500";
-                opt.innerHTML = "500";
-                selectPag.appendChild(opt);
-                selectPag.value = "500";
-                selectPag.dispatchEvent(new Event('change'));
-                return true;
-            }
-            return false;
-        });
+        const tarjetasCrudas = [];
+        const idsGuardados = new Set();
+        
+        // Memoria entre páginas
+        let currentCategoria = "General";
+        let currentTorneo = "CAMPEONATO Oficial Capital";
+        
+        let hayMasPaginas = true;
+        let paginasLeidas = 1;
 
-        if (paginacionExitosa) {
-            console.log("⏳ [Scraper] Esperando 8 segundos a que la tabla se expanda a 500 filas...");
-            await new Promise((r) => setTimeout(r, 8000));
-            for (const frame of page.frames()) {
-                if (frame.url().includes("grid_tabla_tarjetas")) { iframeTarjetas = frame; break; }
+        // =======================================================
+        // EL BUCLE PAGINADOR: Lee y hace clic en "Siguiente"
+        // =======================================================
+        while (hayMasPaginas && paginasLeidas <= 10) { 
+            console.log(`📥 [Scraper] Leyendo página ${paginasLeidas} de Tarjetas...`);
+            
+            const html = await iframeTarjetas.content();
+            const $ = cheerio.load(html);
+
+            $("tr").each((i, fila) => {
+                // 1. Lector Indestructible de Títulos (por si SIFECH agrupa)
+                const blockFontTds = $(fila).find(".scGridBlockFont td");
+                if (blockFontTds.length > 0) {
+                    let labelEncontrado = "";
+                    let valorEncontrado = "";
+
+                    blockFontTds.each((idx, td) => {
+                        let txt = $(td).text().trim();
+                        if (txt === "Torneo" || txt === "Categoria" || txt === "Categoría") {
+                            labelEncontrado = txt;
+                            for (let k = idx + 1; k < blockFontTds.length; k++) {
+                                let nextTxt = $(blockFontTds[k]).text().trim();
+                                if (nextTxt !== "" && nextTxt !== ":") {
+                                    valorEncontrado = nextTxt;
+                                    break;
+                                }
+                            }
+                        }
+                    });
+
+                    if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
+                    if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
+                } 
+                // Extractor Todoterreno de respaldo
+                else if (!$(fila).hasClass("scGridFieldOdd") && !$(fila).hasClass("scGridFieldEven")) {
+                    let tdsFila = [];
+                    $(fila).find("td").each((j, celda) => {
+                        let t = $(celda).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+                        if (t !== "") tdsFila.push(t);
+                    });
+
+                    let textoFilaUnido = tdsFila.join(" ");
+                    if (textoFilaUnido.match(/^Categor[ií]a/i)) {
+                        currentCategoria = textoFilaUnido.replace(/^Categor[ií]a\s*:?\s*/i, "").trim();
+                    }
+                }
+
+                // 2. Extracción de Jugadores Sancionados
+                if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
+                    let textosFila = [];
+                    $(fila).find("td").each((j, celda) => {
+                        let texto = $(celda).text().replace(/\u00a0/g, " ").trim();
+                        if (texto !== "") textosFila.push(texto);
+                    });
+
+                    if (textosFila.length >= 6 && !textosFila.includes("Nombre")) {
+                        let jugadorCrudo = textosFila[1];
+                        let clubCrudo = textosFila[2];
+                        
+                        // Si la columna de torneo existe la usamos en crudo, sino usamos la memoria
+                        let torneoFila = textosFila[6] ? textosFila[6] : currentTorneo;
+                        
+                        let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
+                        let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo); 
+                        let jugadorLimpio = formatearNombre(jugadorCrudo);
+
+                        let uid = `${categoriaLimpia}-${jugadorLimpio}-${equipoLimpio}-${torneoFila}`;
+
+                        if (!idsGuardados.has(uid)) {
+                            idsGuardados.add(uid);
+                            tarjetasCrudas.push({
+                                torneo: torneoFila, 
+                                categoria: categoriaLimpia,
+                                jugador: jugadorLimpio,
+                                equipo: equipoLimpio,
+                                verde: parseInt(textosFila[3]) || 0,
+                                amarilla: parseInt(textosFila[4]) || 0,
+                                roja: parseInt(textosFila[5]) || 0
+                            });
+                        }
+                    }
+                }
+            });
+
+            console.log(`📊 [Scraper] Tarjetas acumuladas hasta ahora: ${tarjetasCrudas.length}`);
+
+            console.log("⏭️ [Scraper] Intentando pasar a la siguiente página...");
+            const avanzamos = await iframeTarjetas.evaluate(() => {
+                let btnAdelante = document.getElementById('forward_bot') || document.getElementById('forward_top');
+                if (btnAdelante && !btnAdelante.disabled && btnAdelante.style.display !== 'none') {
+                    btnAdelante.click();
+                    return true;
+                }
+                return false;
+            });
+
+            if (avanzamos) {
+                paginasLeidas++;
+                console.log(`⏳ [Scraper] Esperando 5 segundos a que cargue la página ${paginasLeidas}...`);
+                await new Promise((r) => setTimeout(r, 5000));
+
+                for (const frame of page.frames()) {
+                    if (frame.url().includes("grid_tabla_tarjetas")) {
+                        iframeTarjetas = frame;
+                        break;
+                    }
+                }
+            } else {
+                console.log("✅ [Scraper] No hay botón de siguiente habilitado. Fin de la tabla.");
+                hayMasPaginas = false;
             }
-        } else {
-            console.log("⚠️ [Scraper] No se encontró la paginación (son pocos registros). Extrayendo lo visible...");
         }
 
-        // 5. Extracción de datos
-        console.log("📥 [Scraper] ¡Tabla localizada! Extrayendo datos...");
-        const html = await iframeTarjetas.content();
-        const $ = cheerio.load(html);
-
-        const tarjetasCrudas = [];
-        let currentCategoria = "General";
-
-        $("tr").each((i, fila) => {
-            
-            // Extractor "Todoterreno" de Categorías
-            if (!$(fila).hasClass("scGridFieldOdd") && !$(fila).hasClass("scGridFieldEven")) {
-                let tdsFila = [];
-                $(fila).find("td").each((j, celda) => {
-                    let t = $(celda).text().replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
-                    if (t !== "") tdsFila.push(t);
-                });
-
-                let textoFilaUnido = tdsFila.join(" ");
-                
-                if (textoFilaUnido.match(/^Categor[ií]a/i)) {
-                    currentCategoria = textoFilaUnido.replace(/^Categor[ií]a\s*:?\s*/i, "").trim();
-                }
-            }
-
-            // Extracción de jugadores sancionados
-            if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
-                let textosFila = [];
-                $(fila).find("td").each((j, celda) => {
-                    let texto = $(celda).text().replace(/\u00a0/g, " ").trim();
-                    if (texto !== "") textosFila.push(texto);
-                });
-
-                if (textosFila.length >= 6 && textosFila[1] !== "Nombre") {
-                    let jugadorCrudo = textosFila[1];
-                    let clubCrudo = textosFila[2];
-                    
-                    let torneoFila = textosFila[6] ? limpiarTorneo(textosFila[6]) : "Campeonato Oficial";
-                    let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
-                    let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo); 
-                    let jugadorLimpio = formatearNombre(jugadorCrudo);
-
-                    tarjetasCrudas.push({
-                        torneo: torneoFila, 
-                        categoria: categoriaLimpia,
-                        jugador: jugadorLimpio,
-                        equipo: equipoLimpio,
-                        verde: parseInt(textosFila[3]) || 0,
-                        amarilla: parseInt(textosFila[4]) || 0,
-                        roja: parseInt(textosFila[5]) || 0
-                    });
-                }
-            }
-        });
-
-        // 6. Ordenamiento
+        // =======================================================
+        // ORDENAMIENTO FINAL
+        // =======================================================
         console.log("🧹 [Scraper] Ordenando tarjetas (Rojas > Amarillas > Verdes)...");
         tarjetasCrudas.sort((a, b) => {
             if (b.roja !== a.roja) return b.roja - a.roja;
@@ -162,18 +193,8 @@ async function obtenerTarjetasDefinitivo() {
     } catch (error) {
         console.error("💥 [Scraper] Error Crítico:", error.message);
         await browser.close();
-        throw error; // Lanza el error al orquestador
+        throw error;
     }
 }
 
-// Exportamos el módulo
 module.exports = { obtenerTarjetasDefinitivo };
-
-// Bloque para pruebas locales aisladas
-if (require.main === module) {
-    obtenerTarjetasDefinitivo()
-        .then(data => {
-            if(data.length > 0) console.log("👉 Muestra del primer sancionado:", data[0]);
-        })
-        .catch(console.error);
-}
