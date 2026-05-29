@@ -59,18 +59,26 @@ async function obtenerResultados() {
         const htmlGrid = await resGrid.text();
         const $grid = cheerio.load(htmlGrid);
 
-        let scriptCaseInit = "";
-        $grid('input[name="script_case_init"]').each((i, el) => {
-            const val = $grid(el).val();
-            if (val && val.trim() !== "") scriptCaseInit = val;
+        console.log("⏳ [Scraper] Clonando campos de seguridad y pidiendo 500 registros...");
+        
+        // 1. LA SOLUCIÓN: Recolectamos TODOS los inputs ocultos del formulario original
+        const formData = new URLSearchParams();
+        $grid('input[type="hidden"]').each((i, el) => {
+            const name = $grid(el).attr("name");
+            const value = $grid(el).attr("value") || "";
+            if (name) formData.append(name, value);
         });
 
-        if (!scriptCaseInit) throw new Error("No se encontró el token de seguridad.");
-        console.log(`🎯 [Scraper] Token obtenido: ${scriptCaseInit}`);
+        // 2. Inyectamos nuestra orden de cambiar a 500 líneas
+        formData.set("nmgp_opcao", "alterar_quant_linhas");
+        formData.set("nmgp_quant_linhas", "500");
 
-        console.log("⏳ [Scraper] Expandiendo la tabla para leer todos los datos de golpe...");
-        const formPaginacion = `nmgp_opcao=alterar_quant_linhas&nmgp_quant_linhas=500&script_case_init=${scriptCaseInit}`;
+        if (!formData.has("script_case_init")) {
+            throw new Error("No se encontró el token de seguridad.");
+        }
+        console.log(`🎯 [Scraper] Token obtenido: ${formData.get("script_case_init")}`);
 
+        // 3. Enviamos la petición simulando ser el navegador perfecto
         const resExpandido = await fetch(urlGrid, {
             method: "POST",
             headers: {
@@ -79,7 +87,7 @@ async function obtenerResultados() {
                 "User-Agent": USER_AGENT,
                 Referer: urlGrid,
             },
-            body: formPaginacion,
+            body: formData.toString(), // Mandamos el paquete completo
         });
 
         const arrayBuffer = await resExpandido.arrayBuffer();
