@@ -10,8 +10,6 @@ function formatearNombre(nombreCompleto) {
     });
 }
 
-// Ya no usamos limpiarTorneo para no alterar el nombre original
-
 async function obtenerResultados() {
     console.log("🚀 [Scraper] Encendiendo Puppeteer para buscar Resultados...");
 
@@ -89,30 +87,19 @@ async function obtenerResultados() {
             // ====================================================
             // NUEVO SISTEMA INDESTRUCTIBLE PARA LEER TÍTULOS
             // ====================================================
-            const blockFontTds = $(fila).find(".scGridBlockFont td");
-            if (blockFontTds.length > 0) {
-                let labelEncontrado = "";
-                let valorEncontrado = "";
-
-                blockFontTds.each((idx, td) => {
-                    let txt = $(td).text().trim();
-                    // Buscamos la palabra clave
-                    if (txt === "Torneo" || txt === "Fecha" || txt === "Categoria" || txt === "Categoría") {
-                        labelEncontrado = txt;
-                        // Buscamos el valor en las celdas siguientes, ignorando íconos o ":"
-                        for (let k = idx + 1; k < blockFontTds.length; k++) {
-                            let nextTxt = $(blockFontTds[k]).text().trim();
-                            if (nextTxt !== "" && nextTxt !== ":") {
-                                valorEncontrado = nextTxt;
-                                break;
-                            }
-                        }
-                    }
-                });
-
-                if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
-                if (labelEncontrado === "Fecha") currentFecha = valorEncontrado;
-                if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
+            const blockFont = $(fila).find(".scGridBlockFont");
+            if (blockFont.length > 0) {
+                // Leemos todo el texto y borramos espacios extra (Ej: "[-] Torneo CAMPEONATO Oficial")
+                let textoBloque = blockFont.text().replace(/\s+/g, " ").trim();
+                
+                if (/Torneo/i.test(textoBloque)) {
+                    // Corta todo hasta la palabra Torneo, dejándonos el nombre limpio y crudo
+                    currentTorneo = textoBloque.replace(/.*Torneo\s*[:\-]?\s*/i, "").trim();
+                } else if (/Fecha/i.test(textoBloque)) {
+                    currentFecha = textoBloque.replace(/.*Fecha\s*[:\-]?\s*/i, "").trim();
+                } else if (/Categor[ií]a/i.test(textoBloque)) {
+                    currentCategoria = textoBloque.replace(/.*Categor[ií]a\s*[:\-]?\s*/i, "").trim();
+                }
             }
 
             // ====================================================
@@ -147,7 +134,7 @@ async function obtenerResultados() {
                     let visitaLimpia = (divVisita && divVisita.toUpperCase() !== "A") ? `${equipoVisitaBase} ${divVisita}` : equipoVisitaBase;
 
                     resultados.push({
-                        torneo: currentTorneo, // ¡Ahora sí guardará el verdadero nombre del torneo!
+                        torneo: currentTorneo, 
                         numero_fecha: parseInt(currentFecha) || 1, 
                         categoria: categoriaLimpia,
                         dia_fecha: "",
