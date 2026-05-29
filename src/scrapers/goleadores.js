@@ -8,16 +8,8 @@ const { diccionarioCategorias, diccionarioEquipos } = require("../utils/dicciona
  */
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";
-    let nombre = nombreCompleto.replace(/,\s*/g, ', ');
+    let nombre = nombreCompleto.replace(/,\s*/g, ', ').replace(/\s+/g, ' ').trim();
     return nombre.toLowerCase().replace(/(?:^|[\s,-])\w/g, match => match.toUpperCase());
-}
-
-/**
- * Limpia caracteres mal codificados del sistema SIFECH (ej: "?" por "ó")
- */
-function limpiarTorneo(torneoCrudo) {
-    if (!torneoCrudo) return "";
-    return torneoCrudo.replace(/\?/g, 'ó').trim();
 }
 
 /**
@@ -31,12 +23,10 @@ async function obtenerGoleadoresDefinitivo() {
     const page = await browser.newPage();
 
     try {
-        // 1. Navegación inicial y espera de carga
         console.log("🌐 [Scraper] Accediendo a SIFECH...");
         await page.goto("https://www.fchh.com.ar/sys/menu/menu.php", { waitUntil: "networkidle2" });
         await new Promise((r) => setTimeout(r, 3000));
 
-        // 2. Simulación de clic en menú para abrir tabla de Goleadores
         const hizoClic = await page.evaluate(() => {
             const enlaceSecreto = document.querySelector('a[href*="grid_tabla_goleadores"]');
             if (enlaceSecreto) {
@@ -47,11 +37,8 @@ async function obtenerGoleadoresDefinitivo() {
         });
 
         if (!hizoClic) throw new Error("Enlace de Goleadores no encontrado en el menú.");
-        
-        // Esperamos a que el iframe reaccione al clic
         await new Promise((r) => setTimeout(r, 6000));
 
-        // 3. Localización del iframe activo
         let iframeGoleadores = null;
         for (const frame of page.frames()) {
             if (frame.url().includes("grid_tabla_goleadores")) {
@@ -62,28 +49,75 @@ async function obtenerGoleadoresDefinitivo() {
 
         if (!iframeGoleadores) throw new Error("El Iframe de Goleadores no cargó correctamente.");
 
-        // 4. Extracción y procesamiento del HTML
+        // =======================================================
+        // SOLUCIÓN 1: INYECTAR LOS 500 REGISTROS
+        // =======================================================
+        console.log("🔓 [Scraper] Inyectando la opción de 500 registros en el menú...");
+        const paginacionExitosa = await iframeGoleadores.evaluate(() => {
+            let selectPag = document.querySelector('select[name="nmgp_quant_linhas"]');
+            if (selectPag) {
+                let opt = document.createElement('option');
+                opt.value = "500";
+                opt.innerHTML = "500";
+                selectPag.appendChild(opt);
+                selectPag.value = "500";
+                selectPag.dispatchEvent(new Event('change')); 
+                return true;
+            }
+            return false;
+        });
+
+        if (!paginacionExitosa) {
+            console.log("⚠️ [Scraper] No se encontró el paginador. Extrayendo lo visible...");
+        } else {
+            console.log("⏳ [Scraper] Esperando 8 segundos a que carguen todos los goleadores...");
+            await new Promise((r) => setTimeout(r, 8000));
+
+            for (const frame of page.frames()) {
+                if (frame.url().includes("grid_tabla_goleadores")) {
+                    iframeGoleadores = frame;
+                    break;
+                }
+            }
+        }
+
         console.log("📥 [Scraper] Leyendo tabla y aplicando diccionarios...");
         const html = await iframeGoleadores.content();
         const $ = cheerio.load(html);
 
         const goleadoresCrudos = [];
         const idsGuardados = new Set();
-        let currentTorneo = "Campeonato Oficial";
+        let currentTorneo = "CAMPEONATO Oficial Capital";
         let currentCategoria = "General";
 
         $("tr").each((_, fila) => {
-            // Detectar filas de agrupación (Torneo o Categoría)
-            const agrupadorTd = $(fila).find(".scGridBlockFont table tr td");
-            if (agrupadorTd.length === 3) {
-                let etiqueta = $(agrupadorTd[0]).text().trim();
-                let valor = $(agrupadorTd[2]).text().trim();
-                
-                if (etiqueta === "Torneo") currentTorneo = limpiarTorneo(valor);
-                if (etiqueta === "Categoria") currentCategoria = valor;
+            // =======================================================
+            // SOLUCIÓN 2: EL LECTOR DE TÍTULOS INDESTRUCTIBLE
+            // =======================================================
+            const blockFontTds = $(fila).find(".scGridBlockFont td");
+            if (blockFontTds.length > 0) {
+                let labelEncontrado = "";
+                let valorEncontrado = "";
+
+                blockFontTds.each((idx, td) => {
+                    let txt = $(td).text().trim();
+                    if (txt === "Torneo" || txt === "Categoria" || txt === "Categoría") {
+                        labelEncontrado = txt;
+                        for (let k = idx + 1; k < blockFontTds.length; k++) {
+                            let nextTxt = $(blockFontTds[k]).text().trim();
+                            if (nextTxt !== "" && nextTxt !== ":") {
+                                valorEncontrado = nextTxt;
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                if (labelEncontrado === "Torneo") currentTorneo = valorEncontrado;
+                if (labelEncontrado === "Categoria" || labelEncontrado === "Categoría") currentCategoria = valorEncontrado;
             }
 
-            // Detectar filas de jugadores
+            // Detección de jugadores
             if ($(fila).hasClass("scGridFieldOdd") || $(fila).hasClass("scGridFieldEven")) {
                 let textosFila = [];
                 $(fila).find("td").each((_, celda) => {
@@ -96,21 +130,20 @@ async function obtenerGoleadoresDefinitivo() {
                     let clubCrudo = textosFila[2];
                     let golesCrudos = textosFila[textosFila.length - 1];
 
-                    // Filtrar cabeceras repetidas y validar cantidad de goles
+                    // Filtrar cabeceras y validar que tenga goles
                     if (jugCrudo !== "Jugador" && !isNaN(parseInt(golesCrudos))) {
                         let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
                         let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo);
                         let nombreLimpio = formatearNombre(jugCrudo);
 
-                        // Crear clave única para evitar jugadores duplicados en la misma tabla
                         let uid = `${categoriaLimpia}-${nombreLimpio}-${equipoLimpio}-${currentTorneo}`;
 
                         if (!idsGuardados.has(uid)) {
                             idsGuardados.add(uid);
                             goleadoresCrudos.push({
-                                torneo: currentTorneo,
+                                torneo: currentTorneo, // Nombre crudo, igual que en Resultados
                                 categoria: categoriaLimpia,
-                                posicion: 0, // Se calcula más adelante
+                                posicion: 0,
                                 jugador: nombreLimpio,
                                 equipo: equipoLimpio,
                                 goles: parseInt(golesCrudos) || 0,
@@ -158,16 +191,8 @@ async function obtenerGoleadoresDefinitivo() {
     } catch (error) {
         console.error("💥 [Scraper] Error Crítico:", error.message);
         await browser.close();
-        throw error; // Lanza el error para que el orquestador lo maneje
+        throw error;
     }
 }
 
-// Exportamos el módulo para su uso externo
 module.exports = { obtenerGoleadoresDefinitivo };
-
-// Bloque de pruebas para ejecutar directamente en consola (node goleadores.js)
-if (require.main === module) {
-    obtenerGoleadoresDefinitivo()
-        .then(data => console.log("👉 Muestra de prueba:", data[0]))
-        .catch(console.error);
-}
