@@ -2,21 +2,12 @@ const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
 const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
 
-/**
- * Formatea nombres de jugadores a Title Case (ej: "Perez, Juan")
- * Asegura un espacio después de la coma.
- */
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";
     let nombre = nombreCompleto.replace(/,\s*/g, ', ').replace(/\s+/g, ' ').trim();
     return nombre.toLowerCase().replace(/(?:^|[\s,-])\w/g, match => match.toUpperCase());
 }
 
-/**
- * Scraper principal de goleadores.
- * Extrae datos, los limpia, los agrupa por torneo/categoría y calcula el Top 10.
- * @returns {Promise<Array>} Array de objetos con los goleadores filtrados.
- */
 async function obtenerGoleadoresDefinitivo() {
     console.log("🚀 [Scraper] Iniciando navegador (Puppeteer) para Goleadores...");
     const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
@@ -37,7 +28,9 @@ async function obtenerGoleadoresDefinitivo() {
         });
 
         if (!hizoClic) throw new Error("Enlace de Goleadores no encontrado en el menú.");
-        await new Promise((r) => setTimeout(r, 6000));
+        
+        // MÁS TIEMPO DE ESPERA PARA QUE SIFECH CARGUE EL IFRAME
+        await new Promise((r) => setTimeout(r, 8000));
 
         let iframeGoleadores = null;
         for (const frame of page.frames()) {
@@ -49,9 +42,14 @@ async function obtenerGoleadoresDefinitivo() {
 
         if (!iframeGoleadores) throw new Error("El Iframe de Goleadores no cargó correctamente.");
 
-        // =======================================================
-        // SOLUCIÓN 1: INYECTAR LOS 500 REGISTROS
-        // =======================================================
+        console.log("⏳ [Scraper] Esperando a que el menú de paginación esté visible...");
+        try {
+            // Freno de mano: Esperamos hasta 10 segundos a que aparezca el botón mágico de SIFECH
+            await iframeGoleadores.waitForSelector('select[name="nmgp_quant_linhas"]', { timeout: 10000 });
+        } catch(e) {
+            console.log("⚠️ [Scraper] El menú tardó mucho en aparecer, intentando inyectar igual...");
+        }
+
         console.log("🔓 [Scraper] Inyectando la opción de 500 registros en el menú...");
         const paginacionExitosa = await iframeGoleadores.evaluate(() => {
             let selectPag = document.querySelector('select[name="nmgp_quant_linhas"]');
@@ -70,8 +68,8 @@ async function obtenerGoleadoresDefinitivo() {
         if (!paginacionExitosa) {
             console.log("⚠️ [Scraper] No se encontró el paginador. Extrayendo lo visible...");
         } else {
-            console.log("⏳ [Scraper] Esperando 8 segundos a que carguen todos los goleadores...");
-            await new Promise((r) => setTimeout(r, 8000));
+            console.log("⏳ [Scraper] Esperando 10 segundos a que carguen todos los goleadores...");
+            await new Promise((r) => setTimeout(r, 10000));
 
             for (const frame of page.frames()) {
                 if (frame.url().includes("grid_tabla_goleadores")) {
@@ -91,9 +89,7 @@ async function obtenerGoleadoresDefinitivo() {
         let currentCategoria = "General";
 
         $("tr").each((_, fila) => {
-            // =======================================================
-            // SOLUCIÓN 2: EL LECTOR DE TÍTULOS INDESTRUCTIBLE
-            // =======================================================
+            // Lector de títulos indestructible (igual que en Resultados)
             const blockFontTds = $(fila).find(".scGridBlockFont td");
             if (blockFontTds.length > 0) {
                 let labelEncontrado = "";
@@ -130,7 +126,6 @@ async function obtenerGoleadoresDefinitivo() {
                     let clubCrudo = textosFila[2];
                     let golesCrudos = textosFila[textosFila.length - 1];
 
-                    // Filtrar cabeceras y validar que tenga goles
                     if (jugCrudo !== "Jugador" && !isNaN(parseInt(golesCrudos))) {
                         let categoriaLimpia = diccionarioCategorias[currentCategoria] || currentCategoria;
                         let equipoLimpio = diccionarioEquipos[clubCrudo.toUpperCase()] || formatearNombre(clubCrudo);
@@ -141,7 +136,7 @@ async function obtenerGoleadoresDefinitivo() {
                         if (!idsGuardados.has(uid)) {
                             idsGuardados.add(uid);
                             goleadoresCrudos.push({
-                                torneo: currentTorneo, // Nombre crudo, igual que en Resultados
+                                torneo: currentTorneo, 
                                 categoria: categoriaLimpia,
                                 posicion: 0,
                                 jugador: nombreLimpio,
@@ -154,7 +149,6 @@ async function obtenerGoleadoresDefinitivo() {
             }
         });
 
-        // 5. Agrupamiento y cálculo del Top 10
         console.log("🧹 [Scraper] Calculando Top 10 por Torneo y Categoría...");
         const goleadoresAgrupados = {};
 
@@ -170,11 +164,8 @@ async function obtenerGoleadoresDefinitivo() {
 
         for (const llave in goleadoresAgrupados) {
             let jugadoresCat = goleadoresAgrupados[llave];
-            
-            // Orden descendente por cantidad de goles
             jugadoresCat.sort((a, b) => b.goles - a.goles);
 
-            // Cortar en 10 y asignar posición real
             let top10 = jugadoresCat.slice(0, 10).map((jugador, index) => {
                 jugador.posicion = index + 1;
                 return jugador;
