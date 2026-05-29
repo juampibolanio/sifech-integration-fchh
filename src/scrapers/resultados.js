@@ -1,9 +1,6 @@
+const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-const fs = require("fs");
-const { loginSifech } = require("../auth/sifechLogin");
 const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
-
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";
@@ -18,85 +15,76 @@ function limpiarTorneo(torneoCrudo) {
     return torneoCrudo.replace(/\?/g, 'ó').trim(); 
 }
 
-function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
-    if (!nuevasCookiesRaw || nuevasCookiesRaw.length === 0) return cookiesViejas;
-    const mapaCookies = new Map();
-    if (cookiesViejas) {
-        cookiesViejas.split(";").forEach((par) => {
-            const [key, ...val] = par.trim().split("=");
-            if (key) mapaCookies.set(key, val.join("="));
-        });
-    }
-    nuevasCookiesRaw.forEach((c) => {
-        const par = c.split(";")[0].trim();
-        const [key, ...val] = par.split("=");
-        if (key) mapaCookies.set(key, val.join("="));
-    });
-    return Array.from(mapaCookies.entries())
-        .map(([k, v]) => `${k}=${v}`)
-        .join("; ");
-}
-
 async function obtenerResultados() {
-    const urlBase = "https://www.fchh.com.ar";
-    const urlGrid = urlBase + "/sys/grid_resultados_bak/grid_resultados_bak.php";
+    console.log("🚀 [Scraper] Encendiendo Puppeteer para buscar Resultados...");
+
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
 
     try {
-        console.log("🔑 [Scraper] Obteniendo sesión fresca de SIFECH...");
-        let cookie = await loginSifech();
+        console.log("🌐 [Scraper] Entrando a la página oficial de SIFECH...");
+        await page.goto("https://www.fchh.com.ar/sys/menu/menu.php", { waitUntil: "networkidle2" });
+        await new Promise((r) => setTimeout(r, 3000));
 
-        console.log("🕵️‍♂️ [Scraper] Entrando a la tabla de Resultados...");
-        const resGrid = await fetch(urlGrid, {
-            method: "GET",
-            headers: {
-                cookie: cookie,
-                "User-Agent": USER_AGENT,
-                Referer: "https://www.fchh.com.ar/sys/back_menu/back_menu.php",
-            },
+        console.log("🖱️ [Scraper] Forzando la carga de la Tabla de Resultados...");
+        const hizoClic = await page.evaluate(() => {
+            // Buscamos el enlace de Resultados en el menú lateral
+            const enlaceSecreto = document.querySelector('a[href*="grid_resultados"]');
+            if (enlaceSecreto) {
+                enlaceSecreto.click();
+                return true;
+            }
+            return false;
         });
 
-        cookie = actualizarCookies(cookie, resGrid.headers.getSetCookie());
-        const htmlGrid = await resGrid.text();
-        const $grid = cheerio.load(htmlGrid);
+        if (!hizoClic) throw new Error("No encontré el enlace de resultados en el menú.");
+        await new Promise((r) => setTimeout(r, 6000));
 
-        console.log("⏳ [Scraper] Clonando campos de seguridad y pidiendo 500 registros...");
-        
-        // 1. LA SOLUCIÓN: Recolectamos TODOS los inputs ocultos del formulario original
-        const formData = new URLSearchParams();
-        $grid('input[type="hidden"]').each((i, el) => {
-            const name = $grid(el).attr("name");
-            const value = $grid(el).attr("value") || "";
-            if (name) formData.append(name, value);
-        });
-
-        // 2. Inyectamos nuestra orden de cambiar a 500 líneas
-        formData.set("nmgp_opcao", "alterar_quant_linhas");
-        formData.set("nmgp_quant_linhas", "500");
-
-        if (!formData.has("script_case_init")) {
-            throw new Error("No se encontró el token de seguridad.");
+        let iframeResultados = null;
+        for (const frame of page.frames()) {
+            if (frame.url().includes("grid_resultados")) {
+                iframeResultados = frame;
+                break;
+            }
         }
-        console.log(`🎯 [Scraper] Token obtenido: ${formData.get("script_case_init")}`);
 
-        // 3. Enviamos la petición simulando ser el navegador perfecto
-        const resExpandido = await fetch(urlGrid, {
-            method: "POST",
-            headers: {
-                "content-type": "application/x-www-form-urlencoded",
-                cookie: cookie,
-                "User-Agent": USER_AGENT,
-                Referer: urlGrid,
-            },
-            body: formData.toString(), // Mandamos el paquete completo
+        if (!iframeResultados) throw new Error("No se encontró el Iframe de resultados.");
+
+        console.log("🔓 [Scraper] Inyectando la opción de 500 registros en el menú...");
+        const paginacionExitosa = await iframeResultados.evaluate(() => {
+            let selectPag = document.querySelector('select[name="nmgp_quant_linhas"]');
+            if (selectPag) {
+                let opt = document.createElement('option');
+                opt.value = "500";
+                opt.innerHTML = "500";
+                selectPag.appendChild(opt);
+                selectPag.value = "500";
+                selectPag.dispatchEvent(new Event('change')); // Simulamos el clic humano
+                return true;
+            }
+            return false;
         });
 
-        const arrayBuffer = await resExpandido.arrayBuffer();
-        const htmlCompleto = new TextDecoder("iso-8859-1").decode(arrayBuffer);
-        const $ = cheerio.load(htmlCompleto);
+        if (!paginacionExitosa) {
+            console.log("⚠️ [Scraper] No se encontró el paginador. Extrayendo lo visible...");
+        } else {
+            console.log("⏳ [Scraper] Esperando 8 segundos a que carguen los 173+ registros...");
+            await new Promise((r) => setTimeout(r, 8000));
 
-        console.log("📥 [Scraper] Extrayendo y agrupando datos de los partidos...");
+            // Re-enganchamos el Iframe por si SIFECH recargó la página internamente
+            for (const frame of page.frames()) {
+                if (frame.url().includes("grid_resultados")) {
+                    iframeResultados = frame;
+                    break;
+                }
+            }
+        }
+
+        console.log("📥 [Scraper] ¡Tabla localizada! Extrayendo datos...");
+        const html = await iframeResultados.content();
+        const $ = cheerio.load(html);
         const resultados = [];
-        
+
         let currentTorneo = "Campeonato Oficial";
         let currentFecha = "";
         let currentCategoria = "";
@@ -152,10 +140,12 @@ async function obtenerResultados() {
         });
 
         console.log(`🎉 [Scraper] ¡Éxito Total! Se extrajeron ${resultados.length} resultados mapeados.`);
+        await browser.close();
         return resultados;
 
     } catch (error) {
         console.error("💥 [Scraper] Error Crítico:", error.message);
+        await browser.close();
         throw error;
     }
 }
