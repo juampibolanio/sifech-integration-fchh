@@ -127,10 +127,8 @@ async function obtenerGoleadoresDefinitivo() {
 
             console.log("⏭️ [Scraper] Intentando pasar a la siguiente página...");
             const avanzamos = await iframeGoleadores.evaluate(() => {
-                // Buscamos el botón de avanzar ">"
                 let btnAdelante = document.getElementById('forward_bot') || document.getElementById('forward_top');
                 
-                // Chequeamos que no esté deshabilitado (lo cual pasa en la última página)
                 if (btnAdelante && !btnAdelante.disabled && btnAdelante.style.display !== 'none') {
                     btnAdelante.click();
                     return true;
@@ -143,7 +141,6 @@ async function obtenerGoleadoresDefinitivo() {
                 console.log(`⏳ [Scraper] Esperando 5 segundos a que cargue la página ${paginasLeidas}...`);
                 await new Promise((r) => setTimeout(r, 5000));
 
-                // Volvemos a enganchar el iframe por las dudas
                 for (const frame of page.frames()) {
                     if (frame.url().includes("grid_tabla_goleadores")) {
                         iframeGoleadores = frame;
@@ -156,9 +153,7 @@ async function obtenerGoleadoresDefinitivo() {
             }
         }
 
-        // =======================================================
-        // PROCESAMIENTO FINAL (Cálculo del Top 10)
-        // =======================================================
+        //Cálculo del Top 10
         console.log("🧹 [Scraper] Calculando Top 10 por Torneo y Categoría...");
         const goleadoresAgrupados = {};
 

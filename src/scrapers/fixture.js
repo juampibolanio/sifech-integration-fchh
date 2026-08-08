@@ -5,9 +5,6 @@ const { diccionarioCategorias, diccionarioEquipos, diccionarioCanchas } = requir
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-/**
- * Formatea nombres a Title Case por si el equipo no está en el diccionario
- */
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";
     return nombreCompleto.toLowerCase().replace(/(?:^|[\s,-])\w/g, function(match) {
@@ -34,7 +31,6 @@ function actualizarCookies(cookiesViejas, nuevasCookiesRaw) {
 
 /**
  * Scraper principal del Fixture.
- * Descarga el CSV oculto del SIFECH, lo decodifica y lo limpia.
  */
 async function obtenerFixture() {
     const urlBase = "https://www.fchh.com.ar";
@@ -112,7 +108,6 @@ async function obtenerFixture() {
             },
         });
 
-        // Decodificación ISO-8859-1 para acentos
         const arrayBuffer = await resCSV.arrayBuffer();
         const textoCSV = new TextDecoder("iso-8859-1").decode(arrayBuffer);
 
@@ -138,7 +133,6 @@ async function obtenerFixture() {
                 let canchaLimpia = diccionarioCanchas[canchaCruda] || canchaCruda;
                 let categoriaLimpia = diccionarioCategorias[catCruda] || catCruda;
                 
-                // Traducción robusta de equipos
                 let localLimpio = diccionarioEquipos[localCrudo.toUpperCase()] || diccionarioEquipos[localCrudo] || formatearNombre(localCrudo);
                 let visitaLimpia = diccionarioEquipos[visitaCruda.toUpperCase()] || diccionarioEquipos[visitaCruda] || formatearNombre(visitaCruda);
 
@@ -168,9 +162,8 @@ async function obtenerFixture() {
 
 module.exports = { obtenerFixture };
 
-// Bloque de pruebas local
 if (require.main === module) {
     obtenerFixture()
-        .then(data => { if(data.length > 0) console.log("👉 Ejemplo:", data[0]) })
+        .then(data => { if(data.length > 0) console.log("Ejemplo:", data[0]) })
         .catch(console.error);
 }
