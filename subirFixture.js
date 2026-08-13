@@ -11,7 +11,6 @@ async function sincronizarFixture() {
     try {
         console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Fixture...");
         
-        // 1. Ejecutar la extracción (ETL)
         const partidos = await obtenerFixture();
         
         if (!partidos || partidos.length === 0) {
@@ -22,7 +21,6 @@ async function sincronizarFixture() {
         console.log(`\n📦 [Orquestador] Preparando paquete con ${partidos.length} partidos limpios.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
-        // 2. Enviar datos vía POST
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
@@ -31,7 +29,6 @@ async function sincronizarFixture() {
             body: JSON.stringify({ data: partidos }) 
         });
 
-        // 3. Validación robusta de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -54,7 +51,7 @@ async function sincronizarFixture() {
 }
 
 module.exports = { sincronizarFixture }
-// Ejecutar
+
 if (require.main === module) {
     sincronizarFixture();
 }

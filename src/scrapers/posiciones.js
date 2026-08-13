@@ -5,7 +5,7 @@ const {
   diccionarioCategorias,
   diccionarioEquipos,
   diccionarioCanchas,
-} = require("../utils/diccionarios");
+} = require("../data/diccionarios");
 
 function formatearNombre(nombreCompleto) {
   if (!nombreCompleto) return "";

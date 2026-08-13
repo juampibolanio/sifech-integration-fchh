@@ -11,7 +11,6 @@ async function sincronizarGoleadores() {
     try {
         console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Goleadores...");
         
-        // 1. Ejecutar el proceso de extracción (ETL)
         const goleadores = await obtenerGoleadoresDefinitivo();
         
         if (!goleadores || goleadores.length === 0) {
@@ -22,7 +21,6 @@ async function sincronizarGoleadores() {
         console.log(`\n📦 [Orquestador] Preparando paquete con ${goleadores.length} registros.`);
         console.log("📤 [Orquestador] Solicitando actualización a Wix...");
 
-        // 2. Enviar datos vía POST
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
@@ -31,7 +29,6 @@ async function sincronizarGoleadores() {
             body: JSON.stringify({ data: goleadores })
         });
 
-        // 3. Manejo y validación de respuesta
         const textResponse = await response.text();
 
         try {
@@ -53,9 +50,8 @@ async function sincronizarGoleadores() {
     }
 }
 
-// Ejecutar el orquestador
 module.exports = { sincronizarGoleadores }
-// Ejecutar
+
 if (require.main === module) {
     sincronizarGoleadores();
 }

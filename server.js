@@ -15,10 +15,8 @@ app.get("/", (req, res) => {
     res.status(200).send("Servidor de SIFECH despierto y operativo");
 });
 
-// LLAVE DE SEGURIDAD
 const API_KEY_SECRETA = process.env.API_KEY;
 
-// Middleware de Seguridad: Verifica que quien llama a la API tenga la llave
 function verificarAPIKey(req, res, next) {
     const llaveRecibida = req.query.key || req.headers['x-api-key'];
     
@@ -30,7 +28,6 @@ function verificarAPIKey(req, res, next) {
     }
 }
 
-// Aplicamos la seguridad a TODAS las rutas que empiecen con /api/sync
 app.use('/api/sync', verificarAPIKey);
 
 // ==========================================
@@ -92,7 +89,6 @@ app.get("/api/sync/tarjetas", async (req, res) => {
 // ==========================================
 
 app.get("/api/sync/todo", async (req, res) => {
-    // 1. Verificamos el candado
     if (sincronizacionEnCurso) {
         console.warn("⚠️ [Servidor] Intento de sincronización rechazado. Ya hay una en curso.");
         return res.status(429).json({ 
@@ -101,7 +97,6 @@ app.get("/api/sync/todo", async (req, res) => {
         });
     }
 
-    // 2. Cerramos el candado
     sincronizacionEnCurso = true;
     console.log("☢️ [Servidor] Petición recibida: SINCRONIZACIÓN GLOBAL INICIADA");
     res.json({ success: true, message: "Sincronización global iniciada en segundo plano." });
@@ -126,13 +121,11 @@ app.get("/api/sync/todo", async (req, res) => {
     } catch (error) {
         console.error("💥 [Servidor] Error durante la sincronización global:", error.message);
     } finally {
-        // 3. Abrimos el candado termine bien o termine mal
         sincronizacionEnCurso = false;
         console.log("🔓 [Servidor] Candado liberado. Listo para nuevas peticiones.");
     }
 });
 
-// Levantar el servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor API levantado en http://localhost:${PORT}`);
 

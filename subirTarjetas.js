@@ -11,7 +11,6 @@ async function sincronizarTarjetas() {
     try {
         console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Tarjetas...");
         
-        // 1. Ejecutar la extracción
         const tarjetas = await obtenerTarjetasDefinitivo();
         
         if (!tarjetas || tarjetas.length === 0) {
@@ -22,7 +21,6 @@ async function sincronizarTarjetas() {
         console.log(`\n📦 [Orquestador] Preparando paquete con ${tarjetas.length} registros en total.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
-        // 2. Enviar datos vía POST
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
@@ -31,7 +29,6 @@ async function sincronizarTarjetas() {
             body: JSON.stringify({ data: tarjetas })
         });
 
-        // 3. Validación de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -53,9 +50,8 @@ async function sincronizarTarjetas() {
     }
 }
 
-// Ejecutar
 module.exports = { sincronizarTarjetas }
-// Ejecutar
+
 if (require.main === module) {
     sincronizarTarjetas();
 }

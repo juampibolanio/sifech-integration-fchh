@@ -3,3 +3,9 @@ package-lock.json
 .env
 .cache/
 debug_*.html
+pnpm-debug.log
+pnpm-lock.yaml
+pnpm-workspace.yaml
+sifech-service.code-workspace
+.env.production
+.env.dev

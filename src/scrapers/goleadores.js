@@ -1,6 +1,6 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
+const { diccionarioCategorias, diccionarioEquipos } = require("../data/diccionarios");
 
 function formatearNombre(nombreCompleto) {
     if (!nombreCompleto) return "";

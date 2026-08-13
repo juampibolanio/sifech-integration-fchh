@@ -3,7 +3,7 @@ const cheerio = require("cheerio");
 const {
   diccionarioCategorias,
   diccionarioEquipos,
-} = require("../utils/diccionarios");
+} = require("../data/diccionarios");
 
 function formatearNombre(nombreCompleto) {
   if (!nombreCompleto) return "";

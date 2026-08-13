@@ -11,7 +11,6 @@ async function sincronizarResultados() {
     try {
         console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Resultados...");
         
-        // 1. Ejecutar la extracción
         const resultados = await obtenerResultados();
         
         if (!resultados || resultados.length === 0) {
@@ -22,7 +21,6 @@ async function sincronizarResultados() {
         console.log(`\n📦 [Orquestador] Preparando paquete con ${resultados.length} resultados listos.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
-        // 2. Enviar datos vía POST
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
@@ -31,7 +29,6 @@ async function sincronizarResultados() {
             body: JSON.stringify({ data: resultados }) 
         });
 
-        // 3. Validación robusta de la respuesta del servidor (Evita el crash del JSON)
         const textResponse = await response.text();
 
         try {
@@ -54,7 +51,6 @@ async function sincronizarResultados() {
 }
 
 module.exports = { sincronizarResultados }
-// Ejecutar
 if (require.main === module) {
     sincronizarResultados();
 }

@@ -1,6 +1,6 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
-const { diccionarioCategorias, diccionarioEquipos } = require("../utils/diccionarios");
+const { diccionarioCategorias, diccionarioEquipos } = require("../data/diccionarios");
 
 /**
  * Formatea nombres de jugadores a Title Case (ej: "Garcia, María Eugenia")

@@ -11,7 +11,6 @@ async function sincronizarPosiciones() {
     try {
         console.log("⚙️  [Orquestador] Iniciando proceso de sincronización de Posiciones...");
         
-        // 1. Ejecutar la extracción
         const posiciones = await obtenerPosicionesDefinitivo();
         
         if (!posiciones || posiciones.length === 0) {
@@ -22,7 +21,6 @@ async function sincronizarPosiciones() {
         console.log(`\n📦 [Orquestador] Preparando paquete con ${posiciones.length} posiciones en total.`);
         console.log("📤 [Orquestador] Enviando datos a Wix...");
 
-        // 2. Enviar datos vía POST a la API de Wix
         const response = await fetch(wixUrl, {
             method: 'POST',
             headers: {
@@ -31,7 +29,6 @@ async function sincronizarPosiciones() {
             body: JSON.stringify({ data: posiciones })
         });
 
-        // 3. Validación de la respuesta del servidor
         const textResponse = await response.text();
 
         try {
@@ -54,7 +51,7 @@ async function sincronizarPosiciones() {
 }
 
 module.exports = { sincronizarPosiciones }
-// Ejecutar
+
 if (require.main === module) {
     sincronizarPosiciones();
 }
