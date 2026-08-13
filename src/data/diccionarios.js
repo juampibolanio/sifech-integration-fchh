@@ -7,6 +7,8 @@ const diccionarioCategorias = {
   Mamis: "Mamis",
   RESERV: "Reserva",
   Reserva: "Reserva",
+  RESERVA: "Reserva",
+  SUB10F: "Sub 10 Fem.",
   "Sub 12 Femenino": "Sub 12 Fem.",
   SUB12F: "Sub 12 Fem.",
   "Sub 14 Femenino": "Sub 14 Fem.",
@@ -16,6 +18,7 @@ const diccionarioCategorias = {
   "Sub 18 Femenino": "Sub 18 Fem.",
   SUB18F: "Sub 18 Fem.",
   "Sub 19 Femenino": "Sub 19 Fem.",
+  CUARTA: "4ta"
 };
 
 const diccionarioEquipos = {
@@ -44,8 +47,6 @@ const diccionarioEquipos = {
   "FONTANA HOCKEY": "Fontana Hockey",
   "DOAC - ORIONE Atletic Club": "Don Orione AC",
   "CAS": "Sarmiento",
-
-
   "Club Atlético Estudiante": "CA. Estudiantes",
   Sarmiento: "Sarmiento",
   "Asosiacion Civil Chaco Hockey": "Asoc. Chaco Hockey",
